@@ -18,6 +18,7 @@ namespace TorrentFileCopier
             ServicesToRun = new ServiceBase[]
             {
                 new TorrentFileCopier()
+                //new TorrentFileCopier(args)       //If need/want startup paramaters
             };
             ServiceBase.Run(ServicesToRun);
         }

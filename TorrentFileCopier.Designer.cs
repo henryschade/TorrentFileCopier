@@ -31,21 +31,11 @@
         {
             this.eventLog1 = new System.Diagnostics.EventLog();
             ((System.ComponentModel.ISupportInitialize)(this.eventLog1)).BeginInit();
- 
+
             // TorrentFileCopier
             this.ServiceName = "TorrentFileCopier";
 
-            //I modified this file w/ the code editor.
-            this.AutoLog = true;
-            // These Flags set whether or not to handle that specific type of event. Set to true if you need it, false otherwise.
-            this.CanHandlePowerEvent = true;
-            this.CanHandleSessionChangeEvent = true;
-            this.CanPauseAndContinue = true;
-            this.CanShutdown = true;
-            this.CanStop = true;
-
             ((System.ComponentModel.ISupportInitialize)(this.eventLog1)).EndInit();
-
         }
 
         #endregion
