@@ -63,12 +63,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="JunctionPointHelper.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="ProjectInstaller.Designer.cs">
       <DependentUpon>ProjectInstaller.cs</DependentUpon>
     </Compile>
+    <Compile Include="SymbolicLinkHelper.cs" />
     <Compile Include="TorrentFileCopier.cs">
       <SubType>Component</SubType>
     </Compile>

@@ -31,11 +31,17 @@
         {
             this.eventLog1 = new System.Diagnostics.EventLog();
             ((System.ComponentModel.ISupportInitialize)(this.eventLog1)).BeginInit();
-
+            // 
+            // eventLog1
+            // 
+            this.eventLog1.Log = "Application";
+            this.eventLog1.Source = "TorrentFileCopier";
+            // 
             // TorrentFileCopier
+            // 
             this.ServiceName = "TorrentFileCopier";
-
             ((System.ComponentModel.ISupportInitialize)(this.eventLog1)).EndInit();
+
         }
 
         #endregion

@@ -8,14 +8,19 @@ using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace TorrentFileCopier
 {
+    //Has info on how to add/create an installer project to the solution, and is one of the 4 URL's I used as reference in building this program.
+    //https://www.codeproject.com/Articles/3990/Simple-Windows-Service-Sample
+
     public partial class TorrentFileCopier : ServiceBase
     {
         #region Constants and Member Variables
 
-        private string strVerNum = "1.0.5";
+        private string strVerNum = "1.1.0";
         private System.Timers.Timer objTimer = null;
         private int intTimerDelay = 30000;      //30 sec
         private System.Diagnostics.EventLog objEventLog = null;
@@ -28,10 +33,9 @@ namespace TorrentFileCopier
 
         private FileSystemWatcher objFSW = null;
         private string strSourceDir = "D:\\Torrents\\Completed\\";
-        private string strDestinationDir = "E:\\Videos\\Shows2\\";
-        //private string strDestinationDir = "\\\\ZETA\\Videos\\Shows\\";
+        private string strDestinationDir = "E:\\Videos\\Shows\\";
         private string[] strFileTypes = new string[]{".avi", ".mkv", ".mp4"};
-        private string strLastFileCopied = "";
+        private string strLastFileChecked = "";
 
         #endregion Constants and Member Variables
 
@@ -126,6 +130,10 @@ namespace TorrentFileCopier
             string strLogName = "TFC Logs";
 
             objEventLog = new System.Diagnostics.EventLog();
+
+            //Sample from the Designer:
+            //this.eventLog1.Log = "Application";
+            //this.eventLog1.Source = "TorrentFileCopier";
 
             this.ServiceName = "TorrentFileCopier";
 
@@ -233,7 +241,7 @@ namespace TorrentFileCopier
                 strFileType = strFileName.Substring(strFileName.LastIndexOf("."));
             }
 
-            if ((e.ChangeType == WatcherChangeTypes.Deleted) || (strLastFileCopied == strFileName))
+            if ((e.ChangeType == WatcherChangeTypes.Deleted) || (strLastFileChecked == strFileName))
             {
                 //We don't care about files that get Deleted.
                 //
@@ -247,8 +255,6 @@ namespace TorrentFileCopier
                 bool IsInUse = false;
 
                 WriteAnEntry("File '" + strFileName + "' was '" + e.ChangeType.ToString() + "'.");
-                //"File 'Once.Upon.a.Time.S07E08.XviD-AFG\Once.Upon.a.Time.S07E08.XviD-AFG.avi' was 'Changed'."
-                //"File 'Blindspot.S03E10.XviD-AFG\Blindspot.S03E10.XviD-AFG.avi' was 'Deleted'."
 
                 //Check if strDestinationDir has a folder that matches the file name
                 try
@@ -284,10 +290,10 @@ namespace TorrentFileCopier
                                 if ((IsFileReady(strFullFileName) == false))
                                 {
                                     WriteAnEntry("File '" + strFileName + "' is inuse, waiting....");
-                                    IsInUse = true;
 
                                     do
                                     {
+                                        IsInUse = true;
                                         System.Threading.Thread.Sleep(intSleepTime);
 
                                         intCount++;
@@ -296,29 +302,33 @@ namespace TorrentFileCopier
                                             WriteAnEntry("File '" + strFileName + "' was inuse for " + ((intSleepTime / 1000) * intWaitMax) + " seconds.");
                                             break;
                                         }
+                                        IsInUse = false;
                                     } while (IsFileReady(strFullFileName) == false);
-                                    IsInUse = false;
                                 }
 
                                 //Copy file to strDestinationDir
-                                //http://www.bearnakedcode.com/2016/09/multi-threaded-asynchronous-file-copy.html
-                                //https://www.codeproject.com/Questions/1063313/How-to-copy-files-asynchronously-async-await-Sourc
-                                try
+                                if (!IsInUse)
                                 {
-                                    File.Copy(strFullFileName, strSubFolder + "\\" + strFileName);
-                                    strLastFileCopied = strFileName;
+                                    //http://www.bearnakedcode.com/2016/09/multi-threaded-asynchronous-file-copy.html
+                                    //https://www.codeproject.com/Questions/1063313/How-to-copy-files-asynchronously-async-await-Sourc
+                                    try
+                                    {
+                                        File.Copy(strFullFileName, strSubFolder + "\\" + strFileName);
 
-                                    WriteAnEntry("Copied file '" + strFileName + "' to '" + strSubFolder + "\\'.");
-                                }
-                                catch
-                                {
-                                    WriteAnEntry("File '" + strFileName + "' could not be copied, is it in use or does it exist already? ");
+                                        WriteAnEntry("Copied file '" + strFileName + "' to '" + strSubFolder + "\\'.");
+                                    }
+                                    catch
+                                    {
+                                        WriteAnEntry("File '" + strFileName + "' could not be copied, is it in use or does it exist already? ");
+                                    }
                                 }
 
                                 break;      //No need to check the other SubDirectories.
                             }
                         }
                     }
+
+                    strLastFileChecked = strFileName;
                 }
                 catch (Exception ex)
                 {
@@ -346,10 +356,9 @@ namespace TorrentFileCopier
 
         private void WriteAnEntry(string inMessage)
         {
+            //Log to File
             if (bLogToFile)
             {
-                //Log to File
-
                 if ((strLogFile.Contains(":") == false) || (strLogFile.Contains("\\") == false))
                 {
                     strLogFile = strLogPath + strLogFile;
@@ -369,13 +378,22 @@ namespace TorrentFileCopier
                 }
             }
 
+            //Log to system Event Log
             if (bLogToSystem)
             {
                 try
                 {
-                    //Log to system Event Logs
                     objEventLog.WriteEntry(inMessage, EventLogEntryType.Information, intEventId++);
                     //Maybe we try using "eventLog1"
+
+
+                    ////http://www.itprotoday.com/microsoft-visual-studio/how-build-folder-watcher-service-c
+                    //string message = inMessage;
+                    //string eventSource = "Torrent File Copier";
+                    //DateTime dt = new DateTime();
+                    //dt = System.DateTime.UtcNow;
+                    //message = dt.ToLocalTime() + ": " + message;
+                    //EventLog.WriteEntry(eventSource, message);
                 }
                 catch (Exception ex)
                 {
