@@ -387,9 +387,9 @@ namespace TorrentFileCopier
 
         private void Timer_Tick(object sender, System.Timers.ElapsedEventArgs args)
         {
-            WriteAnEntry("TorrentFileCopier timer event triggered (" + (objTimer.Interval / 1000).ToString() + " sec)");
+            WriteAnEntry("\t TorrentFileCopier timer event triggered (" + (objTimer.Interval / 1000).ToString() + " sec)");
 
-            // TODO: Insert monitoring activities here.
+            CheckForUpdates();
         }
 
         private void WriteAnEntry(string inMessage)
