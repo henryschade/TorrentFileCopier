@@ -20,9 +20,9 @@ namespace TorrentFileCopier
     {
         #region Constants and Member Variables
 
-        private string strVerNum = "1.1.0";
+        private string strVerNum = "1.2.0";
         private System.Timers.Timer objTimer = null;
-        private int intTimerDelay = 30000;      //30 sec
+        private int intTimerDelay = 3600;      //in sec, how often the Timer task runs. (3600 = 1 hour)
         private System.Diagnostics.EventLog objEventLog = null;
         private int intEventId = 1;
 
@@ -98,8 +98,8 @@ namespace TorrentFileCopier
             //add an entry to the event log when the service starts
             WriteAnEntry("TorrentFileCopier " + strVerNum + " Started");
 
-            //If we want to use a timer instead of a FileWatcher.
-            //CreateTimer();
+            //We use a timer to double check the source dir every so often, just to make sure.
+            CreateTimer();
 
             CreateFileWatcher();
         }
@@ -109,13 +109,19 @@ namespace TorrentFileCopier
             //add an entry to the event log when the service stops
             WriteAnEntry("TorrentFileCopier Stopped" + System.Environment.NewLine);
 
-            //One sample had .Enable the other had .Stop.
-            //objTimer.Enabled = false;
-            //objTimer.Stop();
+            //Stop the Timer (One sample had .Enable the other had .Stop).
+            if (objTimer != null)
+            {
+                objTimer.Enabled = false;
+                objTimer.Stop();
+            }
 
             //Stop watching
-            objFSW.EnableRaisingEvents = false;
-            objFSW.Dispose();
+            if (objFSW != null)
+            {
+                objFSW.EnableRaisingEvents = false;
+                objFSW.Dispose();
+            }
         }
 
         //OnPause, OnContinue, and OnShutdown are other service actions that can be overridden
@@ -123,6 +129,120 @@ namespace TorrentFileCopier
         #endregion Service Actions
 
         #region Methods
+
+        private void CheckFileAndCopy(string strFullFileName)
+        {
+            string strFileName = strFullFileName;
+            string strFileType = "dir";
+
+            if (strFileName.Contains("\\"))
+            {
+                strFileName = strFileName.Substring(strFileName.LastIndexOf("\\") + 1);
+            }
+            if (strFileName.Contains("."))
+            {
+                strFileType = strFileName.Substring(strFileName.LastIndexOf("."));
+            }
+
+            //Copy file if it is a matching type we want
+            if (strFileTypes.Contains(strFileType))
+            {
+                bool IsInUse = false;
+
+                //Check if strDestinationDir has a folder that matches the file name
+                try
+                {
+                    foreach (string strSubFolder in Directory.GetDirectories(strDestinationDir))
+                    {
+                        //strSubFolder is the full path to the dir, so lets shorten it
+                        string strSubFolderName = strSubFolder.Substring(strSubFolder.LastIndexOf("\\") + 1);
+
+                        if (
+                            (strFullFileName.Contains(strSubFolderName)) ||
+                            (strFullFileName.ToLower().Contains(strSubFolderName.ToLower())) ||
+                            (strFullFileName.ToLower().Contains(strSubFolderName.ToLower().Replace(" ", ".")))
+                           )
+                        {
+                            //Check that not have the file already
+                            if (File.Exists(strSubFolder + "\\" + strFileName))
+                            {
+                                //Already have the file
+                                WriteAnEntry("There is already a copy of '" + strFileName + "' in '" + strSubFolder + "'.");
+
+                                break;      //No need to check the other SubDirectories.
+                            }
+                            else
+                            {
+                                //Copy the File
+                                int intSleepTime = 5000;    //5 seconds
+                                int intWaitMax = 24;        //with a 5 sec sleep should be around 2 min
+                                int intCount = 0;           //to make sure we don't wait indefinitly
+
+                                //We are COPYING, do we care if the file is in use?  Best practice says maybe/probably?
+                                if ((IsFileReady(strFullFileName) == false))
+                                {
+                                    WriteAnEntry("File '" + strFileName + "' is inuse, waiting....");
+
+                                    do
+                                    {
+                                        IsInUse = true;
+                                        System.Threading.Thread.Sleep(intSleepTime);
+
+                                        intCount++;
+                                        if (intCount >= intWaitMax)
+                                        {
+                                            WriteAnEntry("File '" + strFileName + "' was inuse for " + ((intSleepTime / 1000) * intWaitMax) + " seconds.");
+                                            break;
+                                        }
+                                        IsInUse = false;
+                                    } while (IsFileReady(strFullFileName) == false);
+                                }
+
+                                //Copy file to strDestinationDir
+                                if (!IsInUse)
+                                {
+                                    //http://www.bearnakedcode.com/2016/09/multi-threaded-asynchronous-file-copy.html
+                                    //https://www.codeproject.com/Questions/1063313/How-to-copy-files-asynchronously-async-await-Sourc
+                                    try
+                                    {
+                                        File.Copy(strFullFileName, strSubFolder + "\\" + strFileName);
+
+                                        WriteAnEntry("Copied file '" + strFileName + "' to '" + strSubFolder + "\\'.");
+                                    }
+                                    catch
+                                    {
+                                        WriteAnEntry("File '" + strFileName + "' could not be copied, is it in use or does it exist already? ");
+                                    }
+                                }
+
+                                break;      //No need to check the other SubDirectories.
+                            }
+                        }
+                    }
+
+                    strLastFileChecked = strFileName;
+                }
+                catch (Exception ex)
+                {
+                    WriteAnEntry("Error copying file: " + ex.Message);
+                }
+            }
+        }
+
+        private void CheckForUpdates()
+        {
+            //Check the Source dir for files, including sub Dirs.
+            List<string> objFileList = new List<string>();
+            objFileList = Directory.GetFiles(strSourceDir, "*.*", SearchOption.AllDirectories).ToList();
+
+            foreach (string strFile in objFileList)
+            {
+                if (strFile != null)
+                {
+                    CheckFileAndCopy(strFile);
+                }
+            }
+        }
 
         private void CreateEventLog()
         {
@@ -173,13 +293,13 @@ namespace TorrentFileCopier
             objFSW.Filter = "*.*";
 
             //Watch for changes in files.
-            objFSW.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.FileName | NotifyFilters.Size;
+            objFSW.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.Attributes;
 
             //Add event handlers.
             objFSW.Changed += new FileSystemEventHandler(FSW_Change);
             objFSW.Created += new FileSystemEventHandler(FSW_Change);
-            objFSW.Deleted += new FileSystemEventHandler(FSW_Change);
-            //objFSW.Renamed += new RenamedEventHandler(FSW_Change);
+            //objFSW.Deleted += new FileSystemEventHandler(FSW_Change);
+            objFSW.Renamed += new RenamedEventHandler(FSW_Change);
 
             //Begin watching.
             objFSW.EnableRaisingEvents = true;
@@ -192,7 +312,7 @@ namespace TorrentFileCopier
             // Set up a timer to trigger every minute.  
             objTimer = new System.Timers.Timer();
             //objTimer.Interval = 60000;     // 60 seconds
-            objTimer.Interval = intTimerDelay;
+            objTimer.Interval = (intTimerDelay * 1000);     //To convert desired sec to the required msec
             objTimer.Elapsed += new System.Timers.ElapsedEventHandler(this.Timer_Tick);
 
             //One sample had .Enable the other had .Start.
@@ -249,92 +369,10 @@ namespace TorrentFileCopier
                 return;
             }
 
-            //Copy file if right type
-            if (strFileTypes.Contains(strFileType))
-            {
-                bool IsInUse = false;
+            WriteAnEntry("File '" + strFileName + "' was '" + e.ChangeType.ToString() + "'.");
 
-                WriteAnEntry("File '" + strFileName + "' was '" + e.ChangeType.ToString() + "'.");
-
-                //Check if strDestinationDir has a folder that matches the file name
-                try
-                {
-                    foreach (string strSubFolder in Directory.GetDirectories(strDestinationDir))
-                    {
-                        //strSubFolder is the full path to the dir, so lets shorten it
-                        string strSubFolderName = strSubFolder.Substring(strSubFolder.LastIndexOf("\\") + 1);
-
-                        if (
-                            (strFullFileName.Contains(strSubFolderName)) ||
-                            (strFullFileName.ToLower().Contains(strSubFolderName.ToLower())) ||
-                            (strFullFileName.ToLower().Contains(strSubFolderName.ToLower().Replace(" ", ".")))
-                           )
-                        {
-                            //Check that not have the file already
-                            if (File.Exists(strSubFolder + "\\" + strFileName))
-                            {
-                                //Already have the file
-                                WriteAnEntry("There is already a copy of '" + strFileName + "' in '" + strSubFolder + "'.");
-
-                                break;      //No need to check the other SubDirectories.
-                            }
-                            else
-                            {
-                                //Copy the File
-
-                                int intSleepTime = 5000;    //5 seconds
-                                int intWaitMax = 24;        //with a 5 sec sleep should be around 2 min
-                                int intCount = 0;           //to make sure we don't wait indefinitly
-
-                                //We are COPYING, do we care if the file is in use?  Best practice says maybe/probably?
-                                if ((IsFileReady(strFullFileName) == false))
-                                {
-                                    WriteAnEntry("File '" + strFileName + "' is inuse, waiting....");
-
-                                    do
-                                    {
-                                        IsInUse = true;
-                                        System.Threading.Thread.Sleep(intSleepTime);
-
-                                        intCount++;
-                                        if (intCount >= intWaitMax)
-                                        {
-                                            WriteAnEntry("File '" + strFileName + "' was inuse for " + ((intSleepTime / 1000) * intWaitMax) + " seconds.");
-                                            break;
-                                        }
-                                        IsInUse = false;
-                                    } while (IsFileReady(strFullFileName) == false);
-                                }
-
-                                //Copy file to strDestinationDir
-                                if (!IsInUse)
-                                {
-                                    //http://www.bearnakedcode.com/2016/09/multi-threaded-asynchronous-file-copy.html
-                                    //https://www.codeproject.com/Questions/1063313/How-to-copy-files-asynchronously-async-await-Sourc
-                                    try
-                                    {
-                                        File.Copy(strFullFileName, strSubFolder + "\\" + strFileName);
-
-                                        WriteAnEntry("Copied file '" + strFileName + "' to '" + strSubFolder + "\\'.");
-                                    }
-                                    catch
-                                    {
-                                        WriteAnEntry("File '" + strFileName + "' could not be copied, is it in use or does it exist already? ");
-                                    }
-                                }
-
-                                break;      //No need to check the other SubDirectories.
-                            }
-                        }
-                    }
-
-                    strLastFileChecked = strFileName;
-                }
-                catch (Exception ex)
-                {
-                    WriteAnEntry("Error copying file: " + ex.Message);
-                }
-            }
+            //Copy file if it is a matching type we want
+            CheckFileAndCopy(strFullFileName);
         }
 
         private void LogError(string inMessage)
