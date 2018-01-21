@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27130.2024
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TorrentFileCopier", "TorrentFileCopier\TorrentFileCopier.csproj", "{5E6A9A8A-9917-4F80-BA08-6ED9209586E5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TorrentFileCopier", "TorrentFileCopier.csproj", "{5E6A9A8A-9917-4F80-BA08-6ED9209586E5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +20,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {EE78CDAA-5C1F-4B04-9C2F-C338C7CAC3AB}
+		SolutionGuid = {C3C518EE-E109-41D3-877F-5925B51878B8}
 	EndGlobalSection
 EndGlobal
