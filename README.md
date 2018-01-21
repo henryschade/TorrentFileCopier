@@ -1,10 +1,23 @@
-Torrent File Copier
+Torrent File Copier (aka TFC)
 
-Is a windows service that monitors a specified directory (using FileSystemWatcher), and copied files to a specified directory, 
-and into sub folders based on the name, if the file does not exist already.
+Is a windows service that monitors a specified directory (using FileSystemWatcher), and copies files to a specified directory, 
+and into sub directories based on the name, if the file does not exist already.
 
-This is the first windows service I have done.  I used 4 different "how to" guides for guidance, and took the parts of each that I liked.
+This is the first C# windows service I have done.  I used 4 different "how to" guides for guidance, and took the parts of each 
+that I liked.
 
-Right now (21 Jan 2018) it logs to a text file (specified in the code), but has the code to also log to the Event Viewer (not working 100%).
+Right now (21 Jan 2018) it logs to a text file (specified in the code), but has the code to also log to the 
+Event Viewer (not working 100%).  There are variables to turn each type of logging on and off.
 
+There is Timer code, but currently not used, the routine that does the instantiating and starting is never called.  I wanted to 
+make TFC use FileSystemWatcher, but one of the how to's used a timer, and I figured it would not hurt to play with one a bit while 
+developing and testing.
+
+My TODO's and wish lists for TFC are:
+* Tray icon/access to configure the source and destination directories
+* Get Event Log logging working
+* Update torrent client labels of files copied (not sure if this can happen)
+* Do the file copy in another thread or asynchronously
+* Add an installer project to the solution
+* Add UnRAR/UnZip capabilities
 
