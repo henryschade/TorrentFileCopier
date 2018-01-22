@@ -22,7 +22,7 @@ namespace TorrentFileCopier
 
         private string strVerNum = "1.2.0";
         private System.Timers.Timer objTimer = null;
-        private int intTimerDelay = 3600;      //in sec, how often the Timer task runs. (3600 = 1 hour)
+        private int intTimerDelay = 86400;      //in sec, how often the Timer task runs. (3600 = 1 hour, 86400 = 1 day)
         private System.Diagnostics.EventLog objEventLog = null;
         private int intEventId = 1;
 
@@ -148,6 +148,7 @@ namespace TorrentFileCopier
             if (strFileTypes.Contains(strFileType))
             {
                 bool IsInUse = false;
+                bool FoundDir = false;
 
                 //Check if strDestinationDir has a folder that matches the file name
                 try
@@ -163,6 +164,8 @@ namespace TorrentFileCopier
                             (strFullFileName.ToLower().Contains(strSubFolderName.ToLower().Replace(" ", ".")))
                            )
                         {
+                            FoundDir = true;
+
                             //Check that not have the file already
                             if (File.Exists(strSubFolder + "\\" + strFileName))
                             {
@@ -220,6 +223,11 @@ namespace TorrentFileCopier
                         }
                     }
 
+                    if (FoundDir == false)
+                    {
+                        WriteAnEntry("Could NOT find a matching directory for file: " + strFileName);
+                    }
+
                     strLastFileChecked = strFileName;
                 }
                 catch (Exception ex)
@@ -229,7 +237,7 @@ namespace TorrentFileCopier
             }
         }
 
-        private void CheckForUpdates()
+        private void CheckForMissingFiles()
         {
             //Check the Source dir for files, including sub Dirs.
             List<string> objFileList = new List<string>();
@@ -316,7 +324,7 @@ namespace TorrentFileCopier
             objTimer.Elapsed += new System.Timers.ElapsedEventHandler(this.Timer_Tick);
 
             //One sample had .Enable the other had .Start.
-            //objTimer.Enabled = true;
+            objTimer.Enabled = true;
             objTimer.Start();
         }
 
@@ -369,10 +377,13 @@ namespace TorrentFileCopier
                 return;
             }
 
-            WriteAnEntry("File '" + strFileName + "' was '" + e.ChangeType.ToString() + "'.");
-
             //Copy file if it is a matching type we want
-            CheckFileAndCopy(strFullFileName);
+            if (strFileTypes.Contains(strFileType))
+            {
+                WriteAnEntry("File '" + strFileName + "' was '" + e.ChangeType.ToString() + "'.");
+
+                CheckFileAndCopy(strFullFileName);
+            }
         }
 
         private void LogError(string inMessage)
@@ -387,9 +398,9 @@ namespace TorrentFileCopier
 
         private void Timer_Tick(object sender, System.Timers.ElapsedEventArgs args)
         {
-            WriteAnEntry("\t TorrentFileCopier timer event triggered (" + (objTimer.Interval / 1000).ToString() + " sec)");
+            WriteAnEntry("\t TorrentFileCopier timer event triggered (" + (objTimer.Interval / 1000).ToString() + " sec). Checking for missed files.");
 
-            CheckForUpdates();
+            CheckForMissingFiles();
         }
 
         private void WriteAnEntry(string inMessage)
